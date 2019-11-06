@@ -75,13 +75,6 @@ func (fr *fileReader) Read(s int) []byte {
 	return b
 }
 
-func (fr *fileReader) ReadLikeCopy(s int) []byte {
-	b := make([]byte, 0, s)
-	b = append(b, fr.array[fr.readerPosition:fr.readerPosition+int64(s)]...)
-	fr.readerPosition += int64(s)
-	return b
-}
-
 func (fr *fileReader) seek(shift int64, flag int) (int64, error) {
 	if flag == 0 {
 		fr.readerPosition = shift
@@ -249,7 +242,7 @@ func (utf *utf8FontFile) getTableData(name string) []byte {
 		return nil
 	}
 	_, _ = utf.fileReader.seek(int64(desckrip.position), 0)
-	s := utf.fileReader.ReadLikeCopy(desckrip.size)
+	s := utf.fileReader.Read(desckrip.size)
 	return s
 }
 
@@ -681,11 +674,12 @@ func (utf *utf8FontFile) GenerateCutFont(usedRunes map[int]int) []byte {
 	metricsCount = len(symbolCollection)
 	numSymbols = metricsCount
 
-	utf.setOutTable("name", utf.getTableData("name"))
-	utf.setOutTable("cvt ", utf.getTableData("cvt "))
-	utf.setOutTable("fpgm", utf.getTableData("fpgm"))
-	utf.setOutTable("prep", utf.getTableData("prep"))
-	utf.setOutTable("gasp", utf.getTableData("gasp"))
+	utf.setOutTable("name", append([]byte{}, utf.getTableData("name")...))
+	utf.setOutTable("cvt ", append([]byte{}, utf.getTableData("cvt ")...))
+	utf.setOutTable("fpgm", append([]byte{}, utf.getTableData("fpgm")...))
+	utf.setOutTable("prep", append([]byte{}, utf.getTableData("prep")...))
+	utf.setOutTable("gasp", append([]byte{}, utf.getTableData("gasp")...))
+
 
 	postTable := utf.getTableData("post")
 	postTable = append(append([]byte{0x00, 0x03, 0x00, 0x00}, postTable[4:16]...), []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}...)
@@ -778,15 +772,15 @@ func (utf *utf8FontFile) GenerateCutFont(usedRunes map[int]int) []byte {
 	}
 	utf.setOutTable("loca", locaData)
 
-	headData := utf.getTableData("head")
+	headData := append([]byte{}, utf.getTableData("head")...)
 	headData = utf.insertUint16(headData, 50, LocaFormat)
 	utf.setOutTable("head", headData)
 
-	hheaData := utf.getTableData("hhea")
+	hheaData := append([]byte{}, utf.getTableData("hhea")...)
 	hheaData = utf.insertUint16(hheaData, 34, metricsCount)
 	utf.setOutTable("hhea", hheaData)
 
-	maxp := utf.getTableData("maxp")
+	maxp := append([]byte{}, utf.getTableData("maxp")...)
 	maxp = utf.insertUint16(maxp, 4, numSymbols)
 	utf.setOutTable("maxp", maxp)
 
@@ -896,10 +890,10 @@ func (utf *utf8FontFile) getMetrics(metricCount, gid int) []byte {
 	var metrics []byte
 	if gid < metricCount {
 		utf.seek(start + (gid * 4))
-		metrics = utf.fileReader.ReadLikeCopy(4)
+		metrics = utf.fileReader.Read(4)
 	} else {
 		utf.seek(start + ((metricCount - 1) * 4))
-		metrics = utf.fileReader.ReadLikeCopy(2)
+		metrics = utf.fileReader.Read(2)
 		utf.seek(start + (metricCount * 2) + (gid * 2))
 		metrics = append(metrics, utf.fileReader.Read(2)...)
 	}
